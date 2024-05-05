@@ -5,7 +5,7 @@
 
 #include "mybool.h"
 
-#define CONNECTION_QUEUE_SIZE 3  // я не понимаю, как это работает или не работает.
+const int CONNECTION_QUEUE_SIZE = 3;  // я не понимаю, как это работает или не работает.
 
 
 // Функция настраивает серверный (принимающий подключения) TCP сокет, работающий с IPv4 адресами.
@@ -45,31 +45,31 @@ int setup_listener_tcp_socket(in_addr_t ip_address, int port) {
 // Бесконечный цикл для соединения с клиенатми и обработки их запросов.
 // Функция получает дескриптор клиентского сокета и создает отдельный поток для работы с запросом.
 void loop_handle_client_requests(int server_fd) {
-    int* client_socket_fd; // ЕСЛИ МНОГОПОТОК НЕ РАБОТАЕТ, ТО ЭТУ ПЕРЕМЕННУЮ МОЖНО СОЗДАВАТЬ ВНУТРИ ЦИКЛА.
+    int* client_socket_fd;
     while (true) {
         // готовимся ппринимать соединение с клиентом, инициализируем структуры.
         int client_socket_fd = malloc(sizeof(int));
         struct sockaddr_in client_socket_addr;
         socklen_t client_socket_addr_len = sizeof(client_socket_addr);
         memset(&client_socket_addr, 0, client_socket_addr_len);
-        // 
+        // создаем сокет для соединения с клиентом, если сокет помечен неблокирующимся, то возможна ошибка.
         client_socket_fd = accept(server_fd, &client_socket_addr, &client_socket_addr_len);
         if (client_socket_fd < 0) {
             perror("Accepting client connection failed\n");
             continue;
         }
-        // КАК РАБОТАЕТ `pthread_detach()`?
+        // создаем поток для обработки запроса; поток помечается detatched - вернет ресурсы, завершившись.
         pthread_t thread_id;
         pthread_create(&thread_id, NULL, handle_client, client_socket_fd);
         pthread_detach(thread_id);
-
     }
 
     close(server_fd);
 }
 
-
+// 
 void *handle_client(void *arg) {
+    int client_socket_fd = *(int*)arg;
 
 }
 
