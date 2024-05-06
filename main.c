@@ -6,6 +6,8 @@
 #include <unistd.h>
 
 #include "mybool.h"
+#include "parser.h"
+
 
 const int CONNECTION_QUEUE_SIZE = 3;  // я не понимаю, как это работает или не работает.
 int BUFFER_SIZE = 10240;  // Размер буфера по умолчаению = 10 килобайт.
@@ -44,15 +46,39 @@ int setup_listener_tcp_socket(in_addr_t ip_address, int port) {
     return listener_socket_fd;
 }
 
+//
+void build_http_response(char* request, char* response, size_t* response_len) {
+    if (strcmp(request, "") == 0) {
+        // index.html
+    } else {
+        //
+    }
+}
+
 // 
-void *handle_client(void *arg) {
+void* handle_client(void *arg) {
     int client_socket_fd = *(int*)arg;
     char* buffer = (char*)malloc(BUFFER_SIZE * sizeof(char));
     // 
     ssize_t bytes_received = recv(client_socket_fd, buffer, BUFFER_SIZE, 0);
     if (bytes_received > 0) {
-        printf("%s\n", buffer);
+        // 
+        char* client_request = get_client_request(buffer);
+        // 
+        char* client_response = (char*)malloc(2*BUFFER_SIZE * sizeof(char));
+        size_t response_len;
+        build_http_response(client_request, client_response, &response_len);
+        // 
+        send(client_socket_fd, client_response, response_len, 0);
+
+        free(client_response);
     }
+
+    close(client_socket_fd);
+    free(arg);
+    free(buffer);
+
+    return NULL;
 }
 
 // Бесконечный цикл для соединения с клиенатми и обработки их запросов.
