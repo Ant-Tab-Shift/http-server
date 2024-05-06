@@ -75,14 +75,3 @@ char* get_mime_type(const char *file_ext) {
         return "application/octet-stream";
     }
 }
-
-
-void parse_request(char* request, char* parameters[]) {
-    char* param = strtok(request, "&");
-    int i = 0;
-    while (param != NULL) {
-        parameters[i++] = strdup(param);
-        param = strtok(NULL, "&");
-    }
-    parameters[i] = NULL;
-}
