@@ -21,12 +21,12 @@ char* get_client_request(char* buffer) {
 char* extract_filename(const char *input) {
     regex_t regex;
     regmatch_t match[2];
-    char *pattern_filename = "([^./]+)\\.";
+    char *pattern_filename = "([^/]+)";
     char *filename = NULL;
 
     regcomp(&regex, pattern_filename, REG_EXTENDED);
     if (regexec(&regex, input, 2, match, 0) == 0) {
-        filename = strndup(input + match[1].rm_so, match[1].rm_eo - match[1].rm_so);
+        filename = strndup(input + match[0].rm_so, match[0].rm_eo - match[0].rm_so);
     }
 
     regfree(&regex);
@@ -63,4 +63,26 @@ char* extract_params(const char *input) {
 
     regfree(&regex);
     return params;
+}
+
+
+char* get_mime_type(const char *file_ext) {
+    if (strcasecmp(file_ext, "html") == 0 || strcasecmp(file_ext, "htm") == 0) {
+        return "text/html";
+    } else if (strcasecmp(file_ext, "jpg") == 0 || strcasecmp(file_ext, "jpeg") == 0) {
+        return "image/jpeg";
+    } else {
+        return "application/octet-stream";
+    }
+}
+
+
+void parse_request(char* request, char* parameters[]) {
+    char* param = strtok(request, "&");
+    int i = 0;
+    while (param != NULL) {
+        parameters[i++] = strdup(param);
+        param = strtok(NULL, "&");
+    }
+    parameters[i] = NULL;
 }

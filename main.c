@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #include "mybool.h"
 #include "parser.h"
@@ -48,11 +50,53 @@ int setup_listener_tcp_socket(in_addr_t ip_address, int port) {
 
 //
 void build_http_response(char* request, char* response, size_t* response_len) {
+    char* file_name;
+    char* file_ext;
+    char* file_params;
+    //
     if (strcmp(request, "") == 0) {
-        // index.html
+        file_name = "index.html";
+        file_ext = "html";
     } else {
-        //
+        file_name = extract_filename(request);
+        file_ext = extract_extension(file_name);
+        file_params = extract_params(request);
     }
+    //
+    int file_fd = open(file_name, O_RDONLY);
+    if (file_fd == -1) {
+        snprintf(response, BUFFER_SIZE,
+                 "HTTP/1.1 404 Not Found\r\n"
+                 "Content-Type: text/plain\r\n"
+                 "\r\n"
+                 "404 Not Found");
+        *response_len = strlen(response);
+        return;
+    }
+    const char *mime_type = get_mime_type(file_ext);
+    char *header = (char *)malloc(BUFFER_SIZE * sizeof(char));
+    snprintf(header, BUFFER_SIZE,
+             "HTTP/1.1 200 OK\r\n"
+             "Content-Type: %s\r\n"
+             "\r\n",
+             mime_type);
+    ///////////////////////////////////////////////////////////
+    struct stat file_stat;
+    fstat(file_fd, &file_stat);
+    off_t file_size = file_stat.st_size;
+    //
+    *response_len = 0;
+    memcpy(response, header, strlen(header));
+    *response_len += strlen(header);
+    //
+    ssize_t bytes_read;
+    while ((bytes_read = read(file_fd, 
+                            response + *response_len, 
+                            BUFFER_SIZE - *response_len)) > 0) {
+        *response_len += bytes_read;
+    }
+    free(header);
+    close(file_fd);
 }
 
 // 
