@@ -1,12 +1,14 @@
 #include <netinet/in.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "mybool.h"
 
 const int CONNECTION_QUEUE_SIZE = 3;  // я не понимаю, как это работает или не работает.
-
+int BUFFER_SIZE = 10240;  // Размер буфера по умолчаению = 10 килобайт.
 
 // Функция настраивает серверный (принимающий подключения) TCP сокет, работающий с IPv4 адресами.
 int setup_listener_tcp_socket(in_addr_t ip_address, int port) {
@@ -29,7 +31,7 @@ int setup_listener_tcp_socket(in_addr_t ip_address, int port) {
     listener_socket_addr.sin_addr.s_addr = ip_address;
     listener_socket_addr.sin_port = htons(port);
     // связываем дескриптор сокета с локальным адресом.
-    if (bind(listener_socket_fd, &listener_socket_addr, listener_socket_addr_len) < 0) {
+    if (bind(listener_socket_fd, (struct sockaddr*)&listener_socket_addr, listener_socket_addr_len) < 0) {
         perror("Failed binding listener TCP socket with local address\n");
         exit(EXIT_FAILURE);
     }
@@ -42,35 +44,40 @@ int setup_listener_tcp_socket(in_addr_t ip_address, int port) {
     return listener_socket_fd;
 }
 
+// 
+void *handle_client(void *arg) {
+    int client_socket_fd = *(int*)arg;
+    char* buffer = (char*)malloc(BUFFER_SIZE * sizeof(char));
+    // 
+    ssize_t bytes_received = recv(client_socket_fd, buffer, BUFFER_SIZE, 0);
+    if (bytes_received > 0) {
+        printf("%s\n", buffer);
+    }
+}
+
 // Бесконечный цикл для соединения с клиенатми и обработки их запросов.
 // Функция получает дескриптор клиентского сокета и создает отдельный поток для работы с запросом.
 void loop_handle_client_requests(int server_fd) {
     int* client_socket_fd;
     while (true) {
         // готовимся ппринимать соединение с клиентом, инициализируем структуры.
-        int client_socket_fd = malloc(sizeof(int));
+        client_socket_fd = (int*)malloc(sizeof(int));
         struct sockaddr_in client_socket_addr;
         socklen_t client_socket_addr_len = sizeof(client_socket_addr);
         memset(&client_socket_addr, 0, client_socket_addr_len);
         // создаем сокет для соединения с клиентом, если сокет помечен неблокирующимся, то возможна ошибка.
-        client_socket_fd = accept(server_fd, &client_socket_addr, &client_socket_addr_len);
+        *client_socket_fd = accept(server_fd, (struct sockaddr*)&client_socket_addr, &client_socket_addr_len);
         if (client_socket_fd < 0) {
             perror("Accepting client connection failed\n");
             continue;
         }
         // создаем поток для обработки запроса; поток помечается detatched - вернет ресурсы, завершившись.
         pthread_t thread_id;
-        pthread_create(&thread_id, NULL, handle_client, client_socket_fd);
+        pthread_create(&thread_id, NULL, handle_client, (void*)client_socket_fd);
         pthread_detach(thread_id);
     }
 
     close(server_fd);
-}
-
-// 
-void *handle_client(void *arg) {
-    int client_socket_fd = *(int*)arg;
-
 }
 
 
@@ -78,6 +85,8 @@ int main(int argc, char** argv) {
     if (argc < 2) {
         perror("The port for accepting the connection is not specified\n");
         exit(EXIT_FAILURE);
+    } else if (argc >= 3) {
+        BUFFER_SIZE = atoi(argv[2]);
     }
     int port = atoi(argv[1]);
 
